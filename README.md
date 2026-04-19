@@ -269,44 +269,6 @@ npm link
 mern-builder test-project
 ```
 
----
-
-## 📤 Publishing with GitHub Actions
-
-This repository is configured to automatically publish the `mern-builder` package to the public NPM registry using GitHub Actions!
-
-### Initial Setup (One-time)
-1. Go to [npmjs.com](https://www.npmjs.com/) and create a new **Automation Access Token**.
-2. Go to your GitHub repository -> **Settings** -> **Secrets and variables** -> **Actions**.
-3. Create a new repository secret:
-   - **Name:** `NPM_TOKEN`
-   - **Secret:** *(Paste your newly generated NPM token here)*
-
-### How to trigger a publish
-
-By default, the workflow triggers when a new **Release** is published on GitHub, or when manually triggered.
-1. Run `npm version patch` (or minor/major) locally to bump your `package.json` version, and push the code to `main`.
-2. Go to the GitHub repository **Releases** page and draft a new release. Name the release tag the same as your version (e.g. `v1.0.1`).
-3. Click **Publish release**.
-4. The GitHub Action will immediately checkout the code, install dependencies, build the CLI, and publish it natively to the npm registry.
-
-*(You can also trigger it manually by going to the **Actions** tab -> **Publish Package to NPM** -> **Run workflow**).*
-
-### Installing the Published Package
-
-Once the package is successfully published to NPM by the workflow, anyone can securely run or install it globally!
-
-To run it without installing (recommended):
-```bash
-npx mern-builder my-app
-```
-
-Or to install the package globally so you can access it frequently:
-```bash
-npm install -g mern-builder
-
-mern-builder my-app
-```
 
 ---
 
