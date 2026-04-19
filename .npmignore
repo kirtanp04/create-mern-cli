@@ -1,0 +1,6 @@
+src/
+tsconfig.json
+*.tgz
+node_modules/
+.git/
+*.log
