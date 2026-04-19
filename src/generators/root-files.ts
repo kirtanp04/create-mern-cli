@@ -54,7 +54,9 @@ export function generateBackendEnvExample(config: ProjectConfig): string {
     lines.push(`MONGODB_URI=mongodb://localhost:27017/${config.projectName}`);
   }
   if (config.database === "postgresql") {
-    lines.push(`DATABASE_URL=postgresql://postgres:secret@localhost:5432/${config.projectName}?schema=public`);
+    lines.push(
+      `DATABASE_URL=postgresql://postgres:secret@localhost:5432/${config.projectName}?schema=public`
+    );
   }
   if (config.database === "mysql") {
     lines.push(`DATABASE_URL=mysql://root:secret@localhost:3306/${config.projectName}`);
@@ -64,7 +66,9 @@ export function generateBackendEnvExample(config: ProjectConfig): string {
     lines.push(`JWT_EXPIRES_IN=15m`);
   }
   if (config.authStrategy === "jwt-refresh") {
-    lines.push(`JWT_REFRESH_SECRET=your-super-secret-refresh-key-change-in-production-32chars`);
+    lines.push(
+      `JWT_REFRESH_SECRET=your-super-secret-refresh-key-change-in-production-32chars`
+    );
     lines.push(`JWT_REFRESH_EXPIRES_IN=7d`);
   }
   if (config.corsSetup) {
@@ -77,25 +81,37 @@ export function generateBackendEnvExample(config: ProjectConfig): string {
 export function generateEslintConfig(isBackend = false): string {
   return `import js from '@eslint/js'
 import tseslint from 'typescript-eslint'
-${isBackend ? "" : "import reactHooks from 'eslint-plugin-react-hooks'\nimport reactRefresh from 'eslint-plugin-react-refresh'\n"}
+${
+  isBackend
+    ? ""
+    : "import reactHooks from 'eslint-plugin-react-hooks'\nimport reactRefresh from 'eslint-plugin-react-refresh'\n"
+}
 export default tseslint.config(
   { ignores: ['dist', 'node_modules'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],
-    ${isBackend ? "" : `plugins: {
+    ${
+      isBackend
+        ? `rules: {
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/consistent-type-imports': 'error',
+      'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
+    },`
+        : `plugins: {
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],`}
-    rules: {
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/consistent-type-imports': 'error',
       'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
-    },
+    },`
+    }
   }
 )
 `;
@@ -175,47 +191,49 @@ export function generateVscodeExtensions(): string {
 
 export function generateRootPackageJson(config: ProjectConfig): object {
   const pm = config.packageManager;
-  const runCmd = pm === "npm" ? "npm run" : pm === "yarn" ? "yarn" : "pnpm";
+  const run = pm === "npm" ? "npm run" : pm === "yarn" ? "yarn" : "pnpm";
 
   const scripts: Record<string, string> = {
-    "dev:frontend": `cd frontend && ${runCmd} dev`,
-    "dev:backend": `cd backend && ${runCmd} dev`,
-    dev: `concurrently "${runCmd} dev:frontend" "${runCmd} dev:backend"`,
-    "build:frontend": `cd frontend && ${runCmd} build`,
-    "build:backend": `cd backend && ${runCmd} build`,
-    build: `${runCmd} build:frontend && ${runCmd} build:backend`,
-    "type-check": `${runCmd} type-check:frontend && ${runCmd} type-check:backend`,
-    "type-check:frontend": `cd frontend && ${runCmd} type-check`,
-    "type-check:backend": `cd backend && ${runCmd} type-check`,
+    "dev:frontend":       `cd frontend && ${run} dev`,
+    "dev:backend":        `cd backend && ${run} dev`,
+    dev:                  `concurrently "${run} dev:frontend" "${run} dev:backend"`,
+    "build:frontend":     `cd frontend && ${run} build`,
+    "build:backend":      `cd backend && ${run} build`,
+    build:                `${run} build:frontend && ${run} build:backend`,
+    "type-check":         `${run} type-check:frontend && ${run} type-check:backend`,
+    "type-check:frontend":`cd frontend && ${run} type-check`,
+    "type-check:backend": `cd backend && ${run} type-check`,
   };
 
   if (config.eslintPrettier) {
-    scripts["lint"] = `${runCmd} lint:frontend && ${runCmd} lint:backend`;
-    scripts["lint:frontend"] = `cd frontend && ${runCmd} lint`;
-    scripts["lint:backend"] = `cd backend && ${runCmd} lint`;
-    scripts["format"] = `${runCmd} format:frontend && ${runCmd} format:backend`;
-    scripts["format:frontend"] = `cd frontend && ${runCmd} format`;
-    scripts["format:backend"] = `cd backend && ${runCmd} format`;
+    scripts["lint"]            = `${run} lint:frontend && ${run} lint:backend`;
+    scripts["lint:frontend"]   = `cd frontend && ${run} lint`;
+    scripts["lint:backend"]    = `cd backend && ${run} lint`;
+    scripts["format"]          = `${run} format:frontend && ${run} format:backend`;
+    scripts["format:frontend"] = `cd frontend && ${run} format`;
+    scripts["format:backend"]  = `cd backend && ${run} format`;
   }
 
   if (config.testing !== "none") {
-    scripts["test"] = `${runCmd} test:frontend && ${runCmd} test:backend`;
-    scripts["test:frontend"] = `cd frontend && ${runCmd} test`;
-    if (config.testing === "full") scripts["test:backend"] = `cd backend && ${runCmd} test`;
+    scripts["test"]            = `${run} test:frontend${config.testing === "full" ? ` && ${run} test:backend` : ""}`;
+    scripts["test:frontend"]   = `cd frontend && ${run} test`;
+    if (config.testing === "full") {
+      scripts["test:backend"]  = `cd backend && ${run} test`;
+    }
   }
 
   if (config.docker !== "none") {
-    scripts["docker:up"] = "docker-compose up -d";
-    scripts["docker:down"] = "docker-compose down";
-    scripts["docker:logs"] = "docker-compose logs -f";
+    scripts["docker:up"]    = "docker-compose up -d";
+    scripts["docker:down"]  = "docker-compose down";
+    scripts["docker:logs"]  = "docker-compose logs -f";
     scripts["docker:build"] = "docker-compose build";
   }
 
   return {
-    name: config.projectName,
+    name:    config.projectName,
     version: "0.1.0",
     private: true,
-    type: "module",
+    type:    "module",
     scripts,
     devDependencies: {
       concurrently: "^9.0.1",
@@ -224,36 +242,46 @@ export function generateRootPackageJson(config: ProjectConfig): object {
 }
 
 export function generateReadme(config: ProjectConfig): string {
-  const pm = config.packageManager;
+  const pm  = config.packageManager;
   const install = pm === "yarn" ? "yarn" : `${pm} install`;
-  const run = pm === "npm" ? "npm run" : pm === "yarn" ? "yarn" : "pnpm";
+  const run     = pm === "npm"  ? "npm run" : pm === "yarn" ? "yarn" : "pnpm";
 
   const features: string[] = [
     "⚡ **Vite + React 18 + TypeScript** on the frontend",
     "🛠  **Express + TypeScript** on the backend",
-    config.uiLibrary === "mui" ? "🎨 **MUI v6** with dark/light theming" : "",
-    config.uiLibrary === "shadcn" ? "🎨 **shadcn/ui** with CSS variable theming" : "",
-    config.uiLibrary === "none" ? "🎨 **Tailwind CSS** for styling" : "",
-    config.router !== "none" ? `🗺  **${config.router === "react-router" ? "React Router v6" : "TanStack Router"}** for client-side routing` : "",
-    config.stateManager !== "none" ? `📦 **${config.stateManager}** for state management` : "",
-    config.database === "mongodb" ? "🗄  **MongoDB** with Mongoose ODM" : "",
-    config.database === "postgresql" ? "🗄  **PostgreSQL** with Prisma ORM" : "",
-    config.database === "mysql" ? "🗄  **MySQL** with Prisma ORM" : "",
-    config.authStrategy !== "none" ? `🔐 **JWT${config.authStrategy === "jwt-refresh" ? " + Refresh Token"  : ""}** authentication` : "",
-    config.corsSetup ? "🌐 **CORS** configured with env-based origins" : "",
-    config.logger !== "none" ? `📋 **${config.logger === "pino" ? "Pino" : "Winston"}** structured logging` : "",
-    config.helmetSecurity ? "🔒 **Helmet.js** HTTP security headers" : "",
-    config.rateLimiting ? "🚦 **Rate limiting** with express-rate-limit" : "",
-    config.envValidation ? "✅ **Env validation** with Zod" : "",
-    config.docker !== "none" ? "🐳 **Docker** + docker-compose setup" : "",
-    config.testing !== "none" ? "🧪 **Vitest** testing configured" : "",
-    config.eslintPrettier ? "✨ **ESLint + Prettier** code quality" : "",
-    config.husky ? "🐶 **Husky** pre-commit hooks" : "",
+    config.uiLibrary === "mui"    ? "🎨 **MUI v6** with dark/light theming"              : "",
+    config.uiLibrary === "shadcn" ? "🎨 **shadcn/ui** with CSS variable theming"         : "",
+    config.uiLibrary === "none"   ? "🎨 **Tailwind CSS** for styling"                    : "",
+    config.router === "react-router"    ? "🗺  **React Router v6** for client-side routing"   : "",
+    config.router === "tanstack-router" ? "🗺  **TanStack Router** for type-safe routing"     : "",
+    config.stateManager === "zustand"       ? "📦 **Zustand** for state management"           : "",
+    config.stateManager === "redux-toolkit" ? "📦 **Redux Toolkit** for state management"     : "",
+    config.stateManager === "jotai"         ? "📦 **Jotai** for atomic state management"      : "",
+    config.database === "mongodb"    ? "🗄  **MongoDB** with Mongoose ODM"                : "",
+    config.database === "postgresql" ? "🗄  **PostgreSQL** with Prisma ORM"              : "",
+    config.database === "mysql"      ? "🗄  **MySQL** with Prisma ORM"                   : "",
+    config.authStrategy === "jwt"         ? "🔐 **JWT** authentication"                  : "",
+    config.authStrategy === "jwt-refresh" ? "🔐 **JWT + Refresh Token** authentication"  : "",
+    config.corsSetup        ? "🌐 **CORS** configured with env-based origins"            : "",
+    config.logger === "pino"    ? "📋 **Pino** structured logging"                       : "",
+    config.logger === "winston" ? "📋 **Winston** structured logging"                    : "",
+    config.helmetSecurity   ? "🔒 **Helmet.js** HTTP security headers"                   : "",
+    config.rateLimiting     ? "🚦 **Rate limiting** with express-rate-limit"             : "",
+    config.envValidation    ? "✅ **Zod** environment validation"                        : "",
+    config.docker !== "none"    ? "🐳 **Docker** setup included"                         : "",
+    config.testing !== "none"   ? "🧪 **Vitest** testing configured"                    : "",
+    config.eslintPrettier   ? "✨ **ESLint + Prettier** code quality"                    : "",
+    config.husky            ? "🐶 **Husky** pre-commit hooks"                            : "",
   ].filter(Boolean);
+
+  // Docker compose entry in structure tree
+  const dockerLine = config.docker === "compose"
+    ? "├── docker-compose.yml\n"
+    : "";
 
   return `# ${config.projectName}
 
-> Generated with [create-mern-app](https://npmjs.com/package/create-mern-app)
+> Bootstrapped with [mern-builder](https://npmjs.com/package/mern-builder)
 
 ## Features
 
@@ -263,56 +291,52 @@ ${features.map((f) => `- ${f}`).join("\n")}
 
 \`\`\`
 ${config.projectName}/
-├── frontend/         # Vite + React + TypeScript
+├── frontend/          # Vite + React 18 + TypeScript
 │   ├── src/
 │   │   ├── components/
+│   │   ├── hooks/      # useApi, useLocalStorage
 │   │   ├── pages/
-│   │   ├── hooks/
-│   │   ├── services/  # API client (axios)
+│   │   ├── services/   # axios API client
+│   │   ├── store/      # state management
 │   │   └── types/
 │   └── vite.config.ts
-├── backend/          # Express + TypeScript
+├── backend/           # Express + TypeScript
 │   ├── src/
 │   │   ├── config/    # env, db, cors
 │   │   ├── controllers/
-│   │   ├── middleware/
+│   │   ├── middleware/ # errorHandler, auth, rateLimiter
 │   │   ├── models/
 │   │   ├── routes/
-│   │   └── utils/
-│   └── tsconfig.json
-${config.docker !== "none" ? "├── docker-compose.yml\n" : ""}\└── package.json        # Root workspace scripts
+│   │   └── utils/     # logger, jwt
+${dockerLine}└── package.json       # root workspace scripts
 \`\`\`
 
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js >= 18
 - ${pm}${config.database === "mongodb" ? "\n- MongoDB" : ""}${config.database === "postgresql" ? "\n- PostgreSQL" : ""}${config.database === "mysql" ? "\n- MySQL" : ""}
 
 ### Install dependencies
 
 \`\`\`bash
-# Root
 ${install}
-
-# Or individually:
-cd frontend && ${install}
-cd backend && ${install}
 \`\`\`
 
 ### Environment setup
 
 \`\`\`bash
 cp backend/.env.example backend/.env
-# Then fill in the values
+# Edit backend/.env and fill in your values
 \`\`\`
 
 ### Run in development
 
 \`\`\`bash
-${run} dev          # Starts both frontend and backend concurrently
-${run} dev:frontend # Frontend only (http://localhost:5173)
-${run} dev:backend  # Backend only  (http://localhost:5000)
+${run} dev            # frontend + backend concurrently
+${run} dev:frontend   # frontend only  →  http://localhost:5173
+${run} dev:backend    # backend only   →  http://localhost:5000
 \`\`\`
 
 ### Build for production
@@ -320,56 +344,64 @@ ${run} dev:backend  # Backend only  (http://localhost:5000)
 \`\`\`bash
 ${run} build
 \`\`\`
-
 ${
   config.database === "postgresql" || config.database === "mysql"
-    ? `### Database (Prisma)
+    ? `
+### Database (Prisma)
 
 \`\`\`bash
 cd backend
-${run} db:generate  # Generate Prisma client
-${run} db:migrate   # Run migrations
-${run} db:studio    # Open Prisma Studio GUI
+${run} db:generate  # generate Prisma client
+${run} db:migrate   # run migrations
+${run} db:studio    # open Prisma Studio
 \`\`\`
-
 `
     : ""
 }${
   config.docker !== "none"
-    ? `### Docker
+    ? `
+### Docker
 
 \`\`\`bash
-${run} docker:build  # Build images
-${run} docker:up     # Start all services
-${run} docker:logs   # Tail logs
-${run} docker:down   # Stop services
+${run} docker:build  # build images
+${run} docker:up     # start all services
+${run} docker:logs   # tail logs
+${run} docker:down   # stop services
 \`\`\`
-
 `
     : ""
 }${
   config.testing !== "none"
-    ? `### Testing
+    ? `
+### Testing
 
 \`\`\`bash
-${run} test          # Run all tests
-${run} test:frontend # Vitest (frontend)
+${run} test            # run all tests
+${run} test:frontend   # Vitest (frontend)
 \`\`\`
-
 `
     : ""
-}## API
+}
+## API Reference
 
 Base URL: \`http://localhost:5000/api/v1\`
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| \`/health\` | GET | Health check |${config.authStrategy !== "none" ? `
+| \`/health\` | GET | Health check |${
+  config.authStrategy !== "none"
+    ? `
 | \`/api/v1/auth/register\` | POST | Register new user |
-| \`/api/v1/auth/login\` | POST | Login |
-| \`/api/v1/auth/me\` | GET | Get current user |` : ""}
-| \`/api/v1/users\` | GET | List users |
+| \`/api/v1/auth/login\`    | POST | Login |
+| \`/api/v1/auth/me\`       | GET  | Get current user (auth required) |`
+    : ""
+}
+| \`/api/v1/users\`     | GET | List users |
 | \`/api/v1/users/:id\` | GET | Get user by ID |
+
+## Environment Variables
+
+See \`backend/.env.example\` for all required variables.
 
 ## License
 

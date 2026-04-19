@@ -1,21 +1,26 @@
 import type { ProjectConfig } from "../cli/types";
 
+// ─── API Client ───────────────────────────────────────────────────────────────
+
 export function generateApiClient(config: ProjectConfig): string {
+  const extraImports =
+    config.authStrategy === "jwt-refresh"
+      ? `import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'`
+      : `import axios from 'axios'`;
+
   const authInterceptor =
     config.authStrategy !== "none"
       ? `
-// Attach access token to every request
+// ── Attach access token ───────────────────────────────────────────────────────
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken')
-  if (token) {
-    config.headers.Authorization = \`Bearer \${token}\`
-  }
+  if (token) config.headers.Authorization = \`Bearer \${token}\`
   return config
 })
 ${
   config.authStrategy === "jwt-refresh"
     ? `
-// Refresh token on 401
+// ── Silent refresh on 401 ────────────────────────────────────────────────────
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -44,11 +49,6 @@ api.interceptors.response.use(
 }`
       : "";
 
-  const extraImports =
-    config.authStrategy === "jwt-refresh"
-      ? `import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'`
-      : `import axios from 'axios'`;
-
   return `${extraImports}
 
 const api = axios.create({
@@ -60,27 +60,126 @@ const api = axios.create({
   },
 })
 ${authInterceptor}
-
 export default api
 `;
 }
+
+// ─── useApi hook ──────────────────────────────────────────────────────────────
+
+export function generateUseApiHook(): string {
+  return `import { useState, useCallback } from 'react'
+import api from '@/services/api'
+import type { AxiosRequestConfig } from 'axios'
+
+interface UseApiState<T> {
+  data:    T | null
+  loading: boolean
+  error:   string | null
+}
+
+interface UseApiReturn<T> extends UseApiState<T> {
+  execute: (config?: AxiosRequestConfig) => Promise<T | null>
+  reset:   () => void
+}
+
+export function useApi<T = unknown>(
+  defaultConfig: AxiosRequestConfig
+): UseApiReturn<T> {
+  const [state, setState] = useState<UseApiState<T>>({
+    data:    null,
+    loading: false,
+    error:   null,
+  })
+
+  const execute = useCallback(
+    async (overrideConfig?: AxiosRequestConfig): Promise<T | null> => {
+      setState({ data: null, loading: true, error: null })
+      try {
+        const response = await api.request<T>({ ...defaultConfig, ...overrideConfig })
+        setState({ data: response.data, loading: false, error: null })
+        return response.data
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : 'An unexpected error occurred'
+        setState({ data: null, loading: false, error: message })
+        return null
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [defaultConfig.url, defaultConfig.method]
+  )
+
+  const reset = useCallback(() => {
+    setState({ data: null, loading: false, error: null })
+  }, [])
+
+  return { ...state, execute, reset }
+}
+`;
+}
+
+// ─── useLocalStorage hook ─────────────────────────────────────────────────────
+
+export function generateUseLocalStorageHook(): string {
+  return `import { useState, useEffect } from 'react'
+
+export function useLocalStorage<T>(key: string, initialValue: T) {
+  const [storedValue, setStoredValue] = useState<T>(() => {
+    try {
+      const item = window.localStorage.getItem(key)
+      return item ? (JSON.parse(item) as T) : initialValue
+    } catch {
+      return initialValue
+    }
+  })
+
+  const setValue = (value: T | ((val: T) => T)) => {
+    try {
+      const valueToStore = value instanceof Function ? value(storedValue) : value
+      setStoredValue(valueToStore)
+      window.localStorage.setItem(key, JSON.stringify(valueToStore))
+    } catch (error) {
+      console.warn(\`useLocalStorage: error setting "\${key}"\`, error)
+    }
+  }
+
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key === key && e.newValue !== null) {
+        try {
+          setStoredValue(JSON.parse(e.newValue) as T)
+        } catch {
+          // ignore
+        }
+      }
+    }
+    window.addEventListener('storage', handler)
+    return () => window.removeEventListener('storage', handler)
+  }, [key])
+
+  return [storedValue, setValue] as const
+}
+`;
+}
+
+// ─── State management ─────────────────────────────────────────────────────────
 
 export function generateZustandStore(): string {
   return `import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
 
 interface User {
-  id: string
-  name: string
+  id:    string
+  name:  string
   email: string
-  role: string
+  role:  string
 }
 
 interface AuthState {
-  user: User | null
-  accessToken: string | null
+  user:            User | null
+  accessToken:     string | null
   isAuthenticated: boolean
-  setAuth: (user: User, accessToken: string) => void
+  setAuth:  (user: User, accessToken: string) => void
   clearAuth: () => void
 }
 
@@ -88,8 +187,8 @@ export const useAuthStore = create<AuthState>()(
   devtools(
     persist(
       (set) => ({
-        user: null,
-        accessToken: null,
+        user:            null,
+        accessToken:     null,
         isAuthenticated: false,
         setAuth: (user, accessToken) =>
           set({ user, accessToken, isAuthenticated: true }, false, 'setAuth'),
@@ -118,18 +217,15 @@ export const store = configureStore({
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
-      serializableCheck: {
-        ignoredActions: [],
-      },
+      serializableCheck: { ignoredActions: [] },
     }),
   devTools: import.meta.env.DEV,
 })
 
-export type RootState = ReturnType<typeof store.getState>
+export type RootState  = ReturnType<typeof store.getState>
 export type AppDispatch = typeof store.dispatch
 
-// Typed hooks
-export const useAppDispatch: () => AppDispatch = useDispatch
+export const useAppDispatch: () => AppDispatch             = useDispatch
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector
 `;
 }
@@ -138,21 +234,21 @@ export function generateReduxAuthSlice(): string {
   return `import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
 interface User {
-  id: string
-  name: string
+  id:    string
+  name:  string
   email: string
-  role: string
+  role:  string
 }
 
 interface AuthState {
-  user: User | null
-  accessToken: string | null
+  user:            User | null
+  accessToken:     string | null
   isAuthenticated: boolean
 }
 
 const initialState: AuthState = {
-  user: null,
-  accessToken: localStorage.getItem('accessToken'),
+  user:            null,
+  accessToken:     localStorage.getItem('accessToken'),
   isAuthenticated: false,
 }
 
@@ -161,14 +257,14 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     setAuth: (state, action: PayloadAction<{ user: User; accessToken: string }>) => {
-      state.user = action.payload.user
-      state.accessToken = action.payload.accessToken
+      state.user            = action.payload.user
+      state.accessToken     = action.payload.accessToken
       state.isAuthenticated = true
       localStorage.setItem('accessToken', action.payload.accessToken)
     },
     clearAuth: (state) => {
-      state.user = null
-      state.accessToken = null
+      state.user            = null
+      state.accessToken     = null
       state.isAuthenticated = false
       localStorage.removeItem('accessToken')
     },
@@ -185,20 +281,19 @@ export function generateJotaiStore(): string {
 import { atomWithStorage } from 'jotai/utils'
 
 interface User {
-  id: string
-  name: string
+  id:    string
+  name:  string
   email: string
-  role: string
+  role:  string
 }
 
-// Persisted atom — survives page refresh
-export const accessTokenAtom = atomWithStorage<string | null>('accessToken', null)
-
-// Derived atoms
-export const userAtom = atom<User | null>(null)
+export const accessTokenAtom     = atomWithStorage<string | null>('accessToken', null)
+export const userAtom            = atom<User | null>(null)
 export const isAuthenticatedAtom = atom((get) => get(accessTokenAtom) !== null)
 `;
 }
+
+// ─── Testing ──────────────────────────────────────────────────────────────────
 
 export function generateVitest(isBackend: boolean): string {
   if (isBackend) {
@@ -209,17 +304,9 @@ const config: Config = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
   testMatch: ['**/__tests__/**/*.ts', '**/*.test.ts', '**/*.spec.ts'],
-  transform: {
-    '^.+\\.ts$': 'ts-jest',
-  },
-  moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1',
-  },
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/**/*.d.ts',
-    '!src/index.ts',
-  ],
+  transform: { '^.+\\.ts$': 'ts-jest' },
+  moduleNameMapper: { '^@/(.*)$': '<rootDir>/src/$1' },
+  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/index.ts'],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
 }
@@ -235,25 +322,88 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
   test: {
-    globals: true,
+    globals:     true,
     environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
+    setupFiles:  ['./src/test/setup.ts'],
     coverage: {
-      provider: 'v8',
-      reporter: ['text', 'lcov', 'html'],
-      exclude: ['node_modules/', 'src/test/'],
+      provider:  'v8',
+      reporter:  ['text', 'lcov', 'html'],
+      exclude:   ['node_modules/', 'src/test/'],
     },
   },
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+    alias: { '@': path.resolve(__dirname, './src') },
   },
 })
 `;
 }
 
 export function generateVitestSetup(): string {
-  return `import '@testing-library/jest-dom'
+  return `import '@testing-library/jest-dom'\n`;
+}
+
+// ─── TanStack Router ──────────────────────────────────────────────────────────
+
+export function generateTanStackRouterFile(): string {
+  return `import { createRouter, createRootRoute, createRoute, Outlet, Link } from '@tanstack/react-router'
+import { TanStackRouterDevtools } from '@tanstack/router-devtools'
+
+// Root route
+const rootRoute = createRootRoute({
+  component: () => (
+    <>
+      <nav style={{ display: 'flex', gap: '1rem', padding: '1rem', borderBottom: '1px solid #eee' }}>
+        <Link to="/"      activeProps={{ style: { fontWeight: 'bold' } }}>Home</Link>
+        <Link to="/about" activeProps={{ style: { fontWeight: 'bold' } }}>About</Link>
+      </nav>
+      <Outlet />
+      <TanStackRouterDevtools />
+    </>
+  ),
+})
+
+// Child routes
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/',
+  component: () => (
+    <main style={{ padding: '2rem' }}>
+      <h1>Home</h1>
+      <p>Welcome! Edit <code>src/router.tsx</code> to add routes.</p>
+    </main>
+  ),
+})
+
+const aboutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/about',
+  component: () => (
+    <main style={{ padding: '2rem' }}>
+      <h1>About</h1>
+    </main>
+  ),
+})
+
+// Route tree
+const routeTree = rootRoute.addChildren([indexRoute, aboutRoute])
+
+export const router = createRouter({ routeTree })
+
+// Type safety
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router
+  }
+}
+`;
+}
+
+// ─── React Router routes index ────────────────────────────────────────────────
+
+export function generateReactRouterRoutesIndex(): string {
+  return `// Central place to declare all application routes.
+// Import this from App.tsx or your router entry point.
+export { default as HomePage }      from '@/pages/HomePage'
+export { default as NotFoundPage }  from '@/pages/NotFoundPage'
 `;
 }

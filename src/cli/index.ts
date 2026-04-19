@@ -2,194 +2,344 @@ import * as p from "@clack/prompts";
 import chalk from "chalk";
 import type { ProjectConfig } from "./types";
 
-export async function runPrompts(initialName?: string): Promise<ProjectConfig> {
-  p.intro(chalk.bold.cyan("⚡ create-mern-app — MERN + Vite + TypeScript"));
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-  const projectName = initialName
-    ? initialName
-    : ((await p.text({
-        message: "What is your project name?",
-        placeholder: "my-mern-app",
-        validate: (v) =>
-          !v || v.trim() === "" ? "Project name is required" : undefined,
-      })) as string);
+function cancel(msg = "Operation cancelled."): never {
+  p.cancel(chalk.red(msg));
+  process.exit(0);
+}
 
-  if (p.isCancel(projectName)) {
-    p.cancel("Operation cancelled.");
-    process.exit(0);
-  }
+function guard<T>(value: T | symbol): T {
+  if (p.isCancel(value)) cancel();
+  return value as T;
+}
 
-  const packageManager = (await p.select({
-    message: "Which package manager do you prefer?",
-    options: [
-      { value: "npm", label: "npm" },
-      { value: "pnpm", label: "pnpm  (recommended)" },
-      { value: "yarn", label: "yarn" },
-    ],
-  })) as string;
+// ─── Section prompts ──────────────────────────────────────────────────────────
 
-  if (p.isCancel(packageManager)) { p.cancel("Operation cancelled."); process.exit(0); }
+type GeneralConfig = Pick<
+  ProjectConfig,
+  "projectName" | "packageManager" | "installDeps" | "gitInit"
+>;
 
-  p.log.step(chalk.yellow("🎨 Frontend Configuration"));
+type FrontendConfig = Pick<
+  ProjectConfig,
+  "uiLibrary" | "router" | "stateManager" | "pathAlias"
+>;
 
-  const uiLibrary = (await p.select({
-    message: "Which UI library do you want?",
-    options: [
-      { value: "none", label: "None (plain Tailwind CSS)" },
-      { value: "mui", label: "MUI (Material UI v6) — includes theming" },
-      { value: "shadcn", label: "shadcn/ui — includes theming + Tailwind" },
-    ],
-  })) as string;
+type BackendConfig = Pick<
+  ProjectConfig,
+  | "database"
+  | "authStrategy"
+  | "corsSetup"
+  | "logger"
+  | "rateLimiting"
+  | "helmetSecurity"
+  | "envValidation"
+>;
 
-  if (p.isCancel(uiLibrary)) { p.cancel("Operation cancelled."); process.exit(0); }
+type DevopsConfig = Pick<
+  ProjectConfig,
+  "docker" | "testing" | "eslintPrettier" | "husky"
+>;
 
-  const router = (await p.select({
-    message: "Do you need client-side routing?",
-    options: [
-      { value: "none", label: "No routing" },
-      { value: "react-router", label: "React Router v6" },
-      { value: "tanstack-router", label: "TanStack Router (type-safe)" },
-    ],
-  })) as string;
+async function promptGeneral(defaults?: Partial<GeneralConfig>, initialName?: string): Promise<GeneralConfig> {
+  p.log.step(chalk.cyan.bold("◆  Project Setup"));
 
-  if (p.isCancel(router)) { p.cancel("Operation cancelled."); process.exit(0); }
+  const projectName = guard(
+    await p.text({
+      message: chalk.white("Project name"),
+      placeholder: "my-mern-app",
+      initialValue: defaults?.projectName ?? initialName ?? "",
+      validate: (v) => (!v || v.trim() === "" ? "Project name is required" : undefined),
+    })
+  ) as string;
 
-  const stateManager = (await p.select({
-    message: "State management?",
-    options: [
-      { value: "none", label: "None (React Context / local state)" },
-      { value: "zustand", label: "Zustand (lightweight, recommended)" },
-      { value: "redux-toolkit", label: "Redux Toolkit" },
-      { value: "jotai", label: "Jotai (atomic)" },
-    ],
-  })) as string;
+  const packageManager = guard(
+    await p.select({
+      message: chalk.white("Package manager"),
+      options: [
+        { value: "npm",  label: "npm",  hint: "default" },
+        { value: "pnpm", label: "pnpm", hint: "recommended — fast & disk-efficient" },
+        { value: "yarn", label: "yarn", hint: "classic" },
+      ],
+      initialValue: defaults?.packageManager ?? "pnpm",
+    })
+  ) as string;
 
-  if (p.isCancel(stateManager)) { p.cancel("Operation cancelled."); process.exit(0); }
+  const installDeps = guard(
+    await p.confirm({
+      message: chalk.white("Install dependencies now?"),
+      initialValue: defaults?.installDeps ?? true,
+    })
+  ) as boolean;
 
-  const pathAlias = (await p.confirm({
-    message: "Add path alias (@/ → src/)? (Recommended)",
-    initialValue: true,
-  })) as boolean;
-
-  if (p.isCancel(pathAlias)) { p.cancel("Operation cancelled."); process.exit(0); }
-
-  p.log.step(chalk.yellow("🛠  Backend Configuration"));
-
-  const database = (await p.select({
-    message: "Which database?",
-    options: [
-      { value: "mongodb", label: "MongoDB (Mongoose ODM)" },
-      { value: "postgresql", label: "PostgreSQL (Prisma ORM)" },
-      { value: "mysql", label: "MySQL (Prisma ORM)" },
-      { value: "none", label: "None (no database)" },
-    ],
-  })) as string;
-
-  if (p.isCancel(database)) { p.cancel("Operation cancelled."); process.exit(0); }
-
-  const authStrategy = (await p.select({
-    message: "Authentication strategy?",
-    options: [
-      { value: "none", label: "None" },
-      { value: "jwt", label: "JWT (access token)" },
-      { value: "jwt-refresh", label: "JWT + Refresh Token (recommended)" },
-    ],
-  })) as string;
-
-  if (p.isCancel(authStrategy)) { p.cancel("Operation cancelled."); process.exit(0); }
-
-  const corsSetup = (await p.confirm({
-    message: "Setup CORS with environment-based origins?",
-    initialValue: true,
-  })) as boolean;
-
-  if (p.isCancel(corsSetup)) { p.cancel("Operation cancelled."); process.exit(0); }
-
-  const logger = (await p.select({
-    message: "Server-side logger?",
-    options: [
-      { value: "none", label: "None" },
-      { value: "pino", label: "Pino (fast, structured JSON — recommended)" },
-      { value: "winston", label: "Winston (flexible, multi-transport)" },
-    ],
-  })) as string;
-
-  if (p.isCancel(logger)) { p.cancel("Operation cancelled."); process.exit(0); }
-
-  const securityGroup = (await p.multiselect({
-    message: "Security & middleware features?",
-    options: [
-      { value: "rateLimiting", label: "Rate limiting (express-rate-limit)", selected: true },
-      { value: "helmetSecurity", label: "Helmet.js (HTTP security headers)", selected: true },
-      { value: "envValidation", label: "Env validation with Zod", selected: true },
-    ],
-    required: false,
-  })) as string[];
-
-  if (p.isCancel(securityGroup)) { p.cancel("Operation cancelled."); process.exit(0); }
-
-  p.log.step(chalk.yellow("🐳 DevOps & Tooling"));
-
-  const docker = (await p.select({
-    message: "Docker setup?",
-    options: [
-      { value: "none", label: "None" },
-      { value: "basic", label: "Dockerfiles for frontend & backend" },
-      { value: "compose", label: "docker-compose (frontend + backend + DB)" },
-    ],
-  })) as string;
-
-  if (p.isCancel(docker)) { p.cancel("Operation cancelled."); process.exit(0); }
-
-  const testing = (await p.select({
-    message: "Testing setup?",
-    options: [
-      { value: "none", label: "None" },
-      { value: "vitest", label: "Vitest (frontend unit tests)" },
-      { value: "full", label: "Vitest + Supertest (frontend + API tests)" },
-    ],
-  })) as string;
-
-  if (p.isCancel(testing)) { p.cancel("Operation cancelled."); process.exit(0); }
-
-  const toolingGroup = (await p.multiselect({
-    message: "Code quality tools?",
-    options: [
-      { value: "eslintPrettier", label: "ESLint + Prettier", selected: true },
-      { value: "husky", label: "Husky + lint-staged (pre-commit hooks)", selected: true },
-      { value: "gitInit", label: "Initialize git repo", selected: true },
-    ],
-    required: false,
-  })) as string[];
-
-  if (p.isCancel(toolingGroup)) { p.cancel("Operation cancelled."); process.exit(0); }
-
-  const installDeps = (await p.confirm({
-    message: "Install dependencies now?",
-    initialValue: true,
-  })) as boolean;
-
-  if (p.isCancel(installDeps)) { p.cancel("Operation cancelled."); process.exit(0); }
+  const gitInit = guard(
+    await p.confirm({
+      message: chalk.white("Initialise git repository?"),
+      initialValue: defaults?.gitInit ?? true,
+    })
+  ) as boolean;
 
   return {
-    projectName: (projectName as string).trim(),
+    projectName: projectName.trim(),
     packageManager: packageManager as any,
-    uiLibrary: uiLibrary as any,
-    router: router as any,
-    stateManager: stateManager as any,
-    pathAlias: pathAlias as boolean,
-    database: database as any,
-    authStrategy: authStrategy as any,
-    corsSetup: corsSetup as boolean,
-    logger: logger as any,
-    rateLimiting: securityGroup.includes("rateLimiting"),
-    helmetSecurity: securityGroup.includes("helmetSecurity"),
-    envValidation: securityGroup.includes("envValidation"),
-    docker: docker as any,
-    testing: testing as any,
-    eslintPrettier: toolingGroup.includes("eslintPrettier"),
-    husky: toolingGroup.includes("husky"),
-    gitInit: toolingGroup.includes("gitInit"),
-    installDeps: installDeps as boolean,
+    installDeps,
+    gitInit,
   };
+}
+
+async function promptFrontend(defaults?: Partial<FrontendConfig>): Promise<FrontendConfig> {
+  p.log.step(chalk.yellow.bold("◆  Frontend"));
+
+  const uiLibrary = guard(
+    await p.select({
+      message: chalk.white("UI library"),
+      options: [
+        { value: "none",   label: "Tailwind CSS",  hint: "utility-first, no component library" },
+        { value: "mui",    label: "MUI v6",         hint: "Material UI — full component suite" },
+        { value: "shadcn", label: "shadcn/ui",      hint: "Radix primitives + Tailwind" },
+      ],
+      initialValue: defaults?.uiLibrary ?? "none",
+    })
+  ) as string;
+
+  const router = guard(
+    await p.select({
+      message: chalk.white("Routing"),
+      options: [
+        { value: "none",           label: "None",             hint: "single-page, no routing" },
+        { value: "react-router",   label: "React Router v6",  hint: "industry standard" },
+        { value: "tanstack-router",label: "TanStack Router",  hint: "fully type-safe routes" },
+      ],
+      initialValue: defaults?.router ?? "none",
+    })
+  ) as string;
+
+  const stateManager = guard(
+    await p.select({
+      message: chalk.white("State management"),
+      options: [
+        { value: "none",          label: "None",           hint: "React Context / local state" },
+        { value: "zustand",       label: "Zustand",        hint: "lightweight — recommended" },
+        { value: "redux-toolkit", label: "Redux Toolkit",  hint: "battle-tested, verbose" },
+        { value: "jotai",         label: "Jotai",          hint: "atomic state" },
+      ],
+      initialValue: defaults?.stateManager ?? "zustand",
+    })
+  ) as string;
+
+  const pathAlias = guard(
+    await p.confirm({
+      message: chalk.white("Add @/ path alias  (src → @/)"),
+      initialValue: defaults?.pathAlias ?? true,
+    })
+  ) as boolean;
+
+  return {
+    uiLibrary:    uiLibrary    as any,
+    router:       router       as any,
+    stateManager: stateManager as any,
+    pathAlias,
+  };
+}
+
+async function promptBackend(defaults?: Partial<BackendConfig>): Promise<BackendConfig> {
+  p.log.step(chalk.blue.bold("◆  Backend"));
+
+  const database = guard(
+    await p.select({
+      message: chalk.white("Database"),
+      options: [
+        { value: "mongodb",    label: "MongoDB",    hint: "Mongoose ODM" },
+        { value: "postgresql", label: "PostgreSQL", hint: "Prisma ORM" },
+        { value: "mysql",      label: "MySQL",      hint: "Prisma ORM" },
+        { value: "none",       label: "None",       hint: "skip database setup" },
+      ],
+      initialValue: defaults?.database ?? "mongodb",
+    })
+  ) as string;
+
+  const authStrategy = guard(
+    await p.select({
+      message: chalk.white("Authentication"),
+      options: [
+        { value: "none",        label: "None" },
+        { value: "jwt",         label: "JWT",                 hint: "access token only" },
+        { value: "jwt-refresh", label: "JWT + Refresh Token", hint: "recommended for production" },
+      ],
+      initialValue: defaults?.authStrategy ?? "jwt-refresh",
+    })
+  ) as string;
+
+  const corsSetup = guard(
+    await p.confirm({
+      message: chalk.white("Configure CORS  (env-based origins)"),
+      initialValue: defaults?.corsSetup ?? true,
+    })
+  ) as boolean;
+
+  const logger = guard(
+    await p.select({
+      message: chalk.white("Server logger"),
+      options: [
+        { value: "none",    label: "None" },
+        { value: "pino",    label: "Pino",    hint: "fast, structured JSON — recommended" },
+        { value: "winston", label: "Winston", hint: "flexible, multi-transport" },
+      ],
+      initialValue: defaults?.logger ?? "pino",
+    })
+  ) as string;
+
+  const security = guard(
+    await p.multiselect({
+      message: chalk.white("Security middleware"),
+      options: [
+        { value: "rateLimiting",   label: "Rate limiting",      hint: "express-rate-limit", selected: defaults?.rateLimiting   ?? true },
+        { value: "helmetSecurity", label: "Helmet.js",          hint: "HTTP security headers", selected: defaults?.helmetSecurity ?? true },
+        { value: "envValidation",  label: "Zod env validation", hint: "fail-fast on bad .env",  selected: defaults?.envValidation  ?? true },
+      ],
+      required: false,
+    })
+  ) as string[];
+
+  return {
+    database:      database      as any,
+    authStrategy:  authStrategy  as any,
+    corsSetup,
+    logger:        logger        as any,
+    rateLimiting:   security.includes("rateLimiting"),
+    helmetSecurity: security.includes("helmetSecurity"),
+    envValidation:  security.includes("envValidation"),
+  };
+}
+
+async function promptDevops(defaults?: Partial<DevopsConfig>): Promise<DevopsConfig> {
+  p.log.step(chalk.green.bold("◆  DevOps & Tooling"));
+
+  const docker = guard(
+    await p.select({
+      message: chalk.white("Docker"),
+      options: [
+        { value: "none",    label: "None" },
+        { value: "basic",   label: "Dockerfiles",  hint: "frontend + backend images" },
+        { value: "compose", label: "docker-compose", hint: "full stack + DB service" },
+      ],
+      initialValue: defaults?.docker ?? "none",
+    })
+  ) as string;
+
+  const testing = guard(
+    await p.select({
+      message: chalk.white("Testing"),
+      options: [
+        { value: "none",   label: "None" },
+        { value: "vitest", label: "Vitest",            hint: "frontend unit tests" },
+        { value: "full",   label: "Vitest + Supertest", hint: "frontend + backend API tests" },
+      ],
+      initialValue: defaults?.testing ?? "none",
+    })
+  ) as string;
+
+  const tooling = guard(
+    await p.multiselect({
+      message: chalk.white("Code quality"),
+      options: [
+        { value: "eslintPrettier", label: "ESLint + Prettier",          hint: "linting & formatting",  selected: defaults?.eslintPrettier ?? true },
+        { value: "husky",          label: "Husky + lint-staged",         hint: "pre-commit hooks",      selected: defaults?.husky          ?? true },
+      ],
+      required: false,
+    })
+  ) as string[];
+
+  return {
+    docker:        docker   as any,
+    testing:       testing  as any,
+    eslintPrettier: tooling.includes("eslintPrettier"),
+    husky:          tooling.includes("husky"),
+  };
+}
+
+// ─── Summary display ──────────────────────────────────────────────────────────
+
+function row(label: string, value: string) {
+  return `  ${chalk.dim(label.padEnd(22))} ${chalk.cyan(value)}`;
+}
+
+function showSummary(cfg: ProjectConfig): void {
+  const lines = [
+    "",
+    chalk.bold.white("  Project Summary"),
+    chalk.dim("  " + "─".repeat(38)),
+    row("Project name",    cfg.projectName),
+    row("Package manager", cfg.packageManager),
+    "",
+    chalk.dim("  Frontend"),
+    row("  UI library",     cfg.uiLibrary === "none" ? "Tailwind CSS" : cfg.uiLibrary),
+    row("  Router",         cfg.router),
+    row("  State",          cfg.stateManager),
+    row("  Path alias @/",  cfg.pathAlias ? "yes" : "no"),
+    "",
+    chalk.dim("  Backend"),
+    row("  Database",       cfg.database),
+    row("  Auth",           cfg.authStrategy),
+    row("  Logger",         cfg.logger),
+    row("  CORS",           cfg.corsSetup ? "yes" : "no"),
+    row("  Rate limiting",  cfg.rateLimiting  ? "yes" : "no"),
+    row("  Helmet",         cfg.helmetSecurity ? "yes" : "no"),
+    row("  Zod env",        cfg.envValidation  ? "yes" : "no"),
+    "",
+    chalk.dim("  DevOps & Tooling"),
+    row("  Docker",         cfg.docker),
+    row("  Testing",        cfg.testing),
+    row("  ESLint + Prettier", cfg.eslintPrettier ? "yes" : "no"),
+    row("  Husky hooks",    cfg.husky ? "yes" : "no"),
+    row("  Git init",       cfg.gitInit ? "yes" : "no"),
+    row("  Install deps",   cfg.installDeps ? "yes" : "no"),
+    "",
+  ].join("\n");
+
+  p.note(lines, chalk.bold("Review your choices"));
+}
+
+// ─── Main entry ───────────────────────────────────────────────────────────────
+
+export async function runPrompts(initialName?: string): Promise<ProjectConfig> {
+  p.intro(
+    chalk.bgCyan.black.bold("  mern-builder  ") +
+    "  " +
+    chalk.dim("MERN · Vite · TypeScript")
+  );
+
+  // ── Gather all sections ──
+  let general  = await promptGeneral(undefined, initialName);
+  let frontend = await promptFrontend();
+  let backend  = await promptBackend();
+  let devops   = await promptDevops();
+
+  // ── Review + edit loop ──
+  while (true) {
+    const cfg: ProjectConfig = { ...general, ...frontend, ...backend, ...devops };
+    showSummary(cfg);
+
+    const action = guard(
+      await p.select({
+        message: chalk.white("Ready to scaffold?"),
+        options: [
+          { value: "go",       label: chalk.green.bold("✓  Create project!"),       hint: "scaffold everything now" },
+          { value: "general",  label: "← Edit project setup",  hint: "name, package manager, git…" },
+          { value: "frontend", label: "← Edit frontend",        hint: "UI, routing, state…" },
+          { value: "backend",  label: "← Edit backend",         hint: "DB, auth, logger…" },
+          { value: "devops",   label: "← Edit DevOps & tooling",hint: "docker, testing, linting…" },
+        ],
+      })
+    ) as string;
+
+    if (action === "go") {
+      return cfg;
+    }
+    if (action === "general")  general  = await promptGeneral(general);
+    if (action === "frontend") frontend = await promptFrontend(frontend);
+    if (action === "backend")  backend  = await promptBackend(backend);
+    if (action === "devops")   devops   = await promptDevops(devops);
+  }
 }
