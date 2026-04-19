@@ -134,7 +134,8 @@ enum Role {
 }
 
 export function generateMongoUserModel(): string {
-  return `import mongoose, { Schema, Document, Model } from 'mongoose'
+  return `import type { Document, Model } from 'mongoose';
+import mongoose, { Schema } from 'mongoose'
 import bcrypt from 'bcryptjs'
 
 export interface IUser extends Document {

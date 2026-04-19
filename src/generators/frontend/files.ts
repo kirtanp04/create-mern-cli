@@ -38,8 +38,18 @@ export function generateMainTsx(config: ProjectConfig): string {
     wrappers.push("BrowserRouter");
   }
   if (config.router === "tanstack-router") {
-    imports.push("import { RouterProvider } from '@tanstack/react-router'");
-    imports.push("import { router } from '@/router'");
+    imports.push("import { RouterProvider, createRouter } from '@tanstack/react-router'");
+    imports.push("import { routeTree } from './routeTree.gen'");
+    imports.push("");
+    imports.push("// Create a new router instance");
+    imports.push("const router = createRouter({ routeTree })");
+    imports.push("");
+    imports.push("// Register the router instance for type safety");
+    imports.push("declare module '@tanstack/react-router' {");
+    imports.push("  interface Register {");
+    imports.push("    router: typeof router");
+    imports.push("  }");
+    imports.push("}");
   }
 
   if (config.stateManager === "redux-toolkit") {
@@ -89,19 +99,9 @@ export function generateAppTsx(config: ProjectConfig): string {
   let routerContent = "";
 
   if (config.router === "react-router") {
-    imports.push(`import { Routes, Route, Link } from 'react-router-dom'`);
-    imports.push(`import HomePage from '@/pages/HomePage'`);
-    imports.push(`import NotFoundPage from '@/pages/NotFoundPage'`);
+    imports.push(`import AppRouter from '@/routes/AppRouter'`);
     routerContent = `
-      <nav className="navbar">
-        <Link to="/">Home</Link>
-      </nav>
-      <main>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </main>`;
+      <AppRouter />`;
   } else {
     routerContent = `
       <main>

@@ -93,7 +93,8 @@ import {
   generateVitestSetup,
   generateUseApiHook,
   generateUseLocalStorageHook,
-  generateTanStackRouterFile,
+  generateTanStackRootRoute,
+  generateTanStackIndexRoute,
   generateReactRouterRoutesIndex,
 } from "./generators/misc";
 
@@ -257,20 +258,18 @@ export async function scaffold(config: ProjectConfig): Promise<void> {
 
   // ── Routing ───────────────────────────────────────────────────────────────
   if (config.router === "tanstack-router") {
-    // TanStack: router.tsx in src root + routes directory
-    await writeFile(
-      path.join(frontend, "src", "router.tsx"),
-      generateTanStackRouterFile()
-    );
-    // Placeholder routes dir so TanStack Router plugin can generate into it
     await ensureDir(path.join(frontend, "src", "routes"));
     await writeFile(
-      path.join(frontend, "src", "routes", ".gitkeep"),
-      "# TanStack Router will auto-generate route files here when you run `pnpm dev`\n"
+      path.join(frontend, "src", "routes", "__root.tsx"),
+      generateTanStackRootRoute()
+    );
+    await writeFile(
+      path.join(frontend, "src", "routes", "index.tsx"),
+      generateTanStackIndexRoute()
     );
   }
 
-  if (config.router === "react-router" || config.router === "tanstack-router") {
+  if (config.router === "react-router") {
     await ensureDir(path.join(frontend, "src", "pages"));
     await writeFile(
       path.join(frontend, "src", "pages", "HomePage.tsx"),

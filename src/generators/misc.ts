@@ -344,66 +344,67 @@ export function generateVitestSetup(): string {
 
 // ─── TanStack Router ──────────────────────────────────────────────────────────
 
-export function generateTanStackRouterFile(): string {
-  return `import { createRouter, createRootRoute, createRoute, Outlet, Link } from '@tanstack/react-router'
+export function generateTanStackRootRoute(): string {
+  return `import { createRootRoute, Link, Outlet } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/router-devtools'
 
-// Root route
-const rootRoute = createRootRoute({
+export const Route = createRootRoute({
   component: () => (
     <>
       <nav style={{ display: 'flex', gap: '1rem', padding: '1rem', borderBottom: '1px solid #eee' }}>
-        <Link to="/"      activeProps={{ style: { fontWeight: 'bold' } }}>Home</Link>
-        <Link to="/about" activeProps={{ style: { fontWeight: 'bold' } }}>About</Link>
+        <Link to="/" activeProps={{ style: { fontWeight: 'bold' } }}>
+          Home
+        </Link>
       </nav>
-      <Outlet />
+      <main style={{ padding: '2rem' }}>
+        <Outlet />
+      </main>
       <TanStackRouterDevtools />
     </>
   ),
 })
+`;
+}
 
-// Child routes
-const indexRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/',
-  component: () => (
-    <main style={{ padding: '2rem' }}>
-      <h1>Home</h1>
-      <p>Welcome! Edit <code>src/router.tsx</code> to add routes.</p>
-    </main>
-  ),
+export function generateTanStackIndexRoute(): string {
+  return `import { createFileRoute } from '@tanstack/react-router'
+
+export const Route = createFileRoute('/')({
+  component: Index,
 })
 
-const aboutRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/about',
-  component: () => (
-    <main style={{ padding: '2rem' }}>
-      <h1>About</h1>
-    </main>
-  ),
-})
-
-// Route tree
-const routeTree = rootRoute.addChildren([indexRoute, aboutRoute])
-
-export const router = createRouter({ routeTree })
-
-// Type safety
-declare module '@tanstack/react-router' {
-  interface Register {
-    router: typeof router
-  }
+function Index() {
+  return (
+    <div>
+      <h1>Home Page</h1>
+      <p>Welcome to your MERN Stack using TanStack Router! 🚀</p>
+    </div>
+  )
 }
 `;
 }
 
-// ─── React Router routes index ────────────────────────────────────────────────
+// ─── React Router components ──────────────────────────────────────────────────
 
 export function generateReactRouterRoutesIndex(): string {
-  return `// Central place to declare all application routes.
-// Import this from App.tsx or your router entry point.
-export { default as HomePage }      from '@/pages/HomePage'
-export { default as NotFoundPage }  from '@/pages/NotFoundPage'
+  return `import { Routes, Route, Link } from 'react-router-dom'
+import HomePage from '@/pages/HomePage'
+import NotFoundPage from '@/pages/NotFoundPage'
+
+export default function AppRouter() {
+  return (
+    <>
+      <nav style={{ display: 'flex', gap: '1rem', padding: '1rem', borderBottom: '1px solid #eee' }}>
+        <Link to="/">Home</Link>
+      </nav>
+      <main style={{ padding: '2rem' }}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </main>
+    </>
+  )
+}
 `;
 }
