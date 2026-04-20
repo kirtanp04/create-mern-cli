@@ -1,6 +1,6 @@
 {
   "name": "mern-builder",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Scaffold a full-stack MERN app with Vite + TypeScript — like create-next-app but for MERN",
   "main": "dist/index.js",
   "bin": {
@@ -47,9 +47,12 @@
     "ora": "^8.0.1"
   },
   "devDependencies": {
+    "@semantic-release/github": "^11.0.6",
+    "@semantic-release/npm": "^12.0.2",
     "@types/fs-extra": "^11.0.4",
     "@types/gradient-string": "^1.1.5",
     "@types/node": "^20.11.0",
+    "semantic-release": "^24.2.9",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }
