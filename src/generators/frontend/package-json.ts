@@ -9,6 +9,7 @@ export function generateFrontendPackageJson(config: ProjectConfig): object {
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "@types/node": "^25.6.0",
     typescript: "^5.5.3",
     vite: "^5.3.4",
   };

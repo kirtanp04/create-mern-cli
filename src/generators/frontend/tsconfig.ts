@@ -27,6 +27,7 @@ export function generateTsConfigApp(config: ProjectConfig): object {
       useDefineForClassFields: true,
       lib: ["ES2020", "DOM", "DOM.Iterable"],
       module: "ESNext",
+      types:["node"],
       skipLibCheck: true,
       moduleResolution: "bundler",
       allowImportingTsExtensions: true,
@@ -38,6 +39,7 @@ export function generateTsConfigApp(config: ProjectConfig): object {
       noUnusedLocals: true,
       noUnusedParameters: true,
       noFallthroughCasesInSwitch: true,
+      ignoreDeprecations:"6.0",
       ...(config.pathAlias && {
         baseUrl: ".",
         paths,
